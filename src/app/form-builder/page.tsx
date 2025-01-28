@@ -1,8 +1,8 @@
 'use client';
+
 import { useState } from 'react';
-import { DndProvider } from 'react-dnd';
+import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { useDrag, useDrop } from 'react-dnd';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -59,17 +59,6 @@ function DroppableArea() {
     }
   };
 
-  const [, drag] = useDrag(() => ({
-    type: ITEM_TYPE,
-    item: { label: "Reorder" },
-  }));
-
-  const handleSortEnd = ({ oldIndex, newIndex }: { oldIndex: number, newIndex: number }) => {
-    if (oldIndex !== newIndex) {
-      setFormElements((prevElements) => arrayMoveImmutable(prevElements, oldIndex, newIndex)); 
-    }
-  };
-
   return (
     <Card ref={drop} className="w-full min-h-[250px] p-6 bg-gray-50 border-dashed border-2 border-gray-300">
       <CardHeader>
@@ -87,19 +76,23 @@ function DroppableArea() {
                 element={element}
                 formElements={formElements}
                 setFormElements={setFormElements}
+                setSelectedElement={setSelectedElement}
+                isSelected={element.id === selectedElement}
               />
             ))}
           </ul>
         )}
         <div className="mt-4">
-          <Button onClick={handleDelete} className="w-full bg-red-500 text-white">Delete Selected</Button>
+          <Button onClick={handleDelete} className="w-full bg-red-500 text-white" disabled={selectedElement === null}>
+            Delete Selected
+          </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function DraggableElementWithSort({ element, index, formElements, setFormElements }: any) {
+function DraggableElementWithSort({ element, index, formElements, setFormElements, setSelectedElement, isSelected }: any) {
   const [, drag] = useDrag(() => ({
     type: ITEM_TYPE,
     item: { index },
@@ -110,14 +103,17 @@ function DraggableElementWithSort({ element, index, formElements, setFormElement
     hover: (draggedItem: { index: number }) => {
       const { index: draggedIndex } = draggedItem;
       if (draggedIndex !== index) {
-        const newElements = arrayMoveImmutable(formElements, draggedIndex, index);
-        setFormElements(newElements);
+        setFormElements((prevElements) => arrayMoveImmutable(prevElements, draggedIndex, index));
       }
     },
   }));
 
   return (
-    <li ref={(node) => drag(drop(node))} className="mb-4 cursor-pointer">
+    <li
+      ref={(node) => drag(drop(node))}
+      className={`mb-4 p-2 border rounded-md shadow-sm flex justify-between items-center cursor-pointer transition ${isSelected ? "bg-red-200" : "bg-white"}`}
+      onClick={() => setSelectedElement(element.id)}
+    >
       {formElementComponents[element.label]}
     </li>
   );
