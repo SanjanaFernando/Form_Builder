@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { HiOutlineUser, HiOutlineMail, HiOutlineClipboardList, HiOutlineCheckCircle, HiOutlineCalendar } from "react-icons/hi";  
 import { arrayMoveImmutable } from 'array-move';  
+import { JSX } from 'react/jsx-runtime';
 
 const ITEM_TYPE = 'FORM_ELEMENT';
 
@@ -41,7 +42,7 @@ function DraggableElement({ label }: { label: string }) {
   );
 }
 
-function DroppableArea() {
+function DroppableArea({ onSave }: { onSave: (elements: any[]) => void }) {
   const [formElements, setFormElements] = useState<{ id: number; label: string }[]>([]);
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
 
@@ -83,7 +84,10 @@ function DroppableArea() {
           </ul>
         )}
         <div className="mt-4">
-          <Button onClick={handleDelete} className="w-full bg-red-500 text-white" disabled={selectedElement === null}>
+          <Button onClick={() => onSave(formElements)} className="w-full bg-green-500 text-white">
+            Save Form
+          </Button>
+          <Button onClick={handleDelete} className="w-full bg-red-500 text-white mt-2" disabled={selectedElement === null}>
             Delete Selected
           </Button>
         </div>
@@ -120,36 +124,69 @@ function DraggableElementWithSort({ element, index, formElements, setFormElement
 }
 
 export default function FormBuilderPage() {
+  const [formTitle, setFormTitle] = useState<string>(''); // State for form title
+
+  const handleSaveForm = async (elements: any[]) => {
+    try {
+      const response = await fetch('/api/saveForm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formTitle,
+          elements,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save form');
+
+      console.log('Form saved successfully');
+    } catch (error) {
+      console.error(error.message);
+    }
+  };
+
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="h-screen flex flex-col">
         <header className="bg-gray-800 text-white p-4 flex justify-between items-center shadow">
           <h1 className="text-xl font-bold text-yellow-400">Form Builder</h1>
-          <Button variant="secondary">Save Form</Button>
         </header>
 
+        {/* Input field for the form title */}
+        <div className="p-4">
+          <input 
+            type="text"
+            value={formTitle}
+            onChange={(e) => setFormTitle(e.target.value)}
+            placeholder="Enter Form Title"
+            className="border p-2 w-full rounded-md"
+          />
+        </div>
+
         <div className="flex flex-col md:flex-row flex-grow">
+          {/* Sidebar */}
           <aside className="w-full md:w-1/4 bg-gray-100 p-4">
             <h2 className="font-bold text-lg text-blue-600 mb-4">Form Elements</h2>
             <Separator className="mb-4" />
             <ul className="space-y-2">
-              <DraggableElement label="Text Field" />
-              <DraggableElement label="Email" />
-              <DraggableElement label="Dropdown" />
-              <DraggableElement label="Checkbox" />
-              <DraggableElement label="Date Picker" />
+              {Object.keys(formElementComponents).map((label) => (
+                <DraggableElement key={label} label={label} />
+              ))}
             </ul>
           </aside>
 
+          {/* Main Builder */}
           <main className="w-full md:w-2/4 bg-white p-6 border-x flex justify-center">
-            <DroppableArea />
+            <DroppableArea onSave={handleSaveForm} />
           </main>
 
+          {/* Right Sidebar */}
           <aside className="w-full md:w-1/4 bg-gray-100 p-4">
-            <h2 className="font-bold text-lg text-green-500 mb-4">Form Designer</h2>
-            <Separator className="mb-4" />
-            <p className="text-gray-600 mb-4">Customize your form with colors, styles, and layouts.</p>
-            <Button className="w-full bg-blue-500 text-white">Apply Theme</Button>
+            <h2 className="font-bold text-lg text-green-500 mb-4">Customize Form</h2>
+            <Separator />
+            {/* Add customization options here */}
           </aside>
         </div>
       </div>

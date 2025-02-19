@@ -1,3 +1,4 @@
+// _app.tsx
 import '@/app/globals.css';
 import {
   ClerkProvider,
@@ -23,6 +24,10 @@ function MyApp({ Component, pageProps }: AppProps) {
             </a>
             <a href="/form-builder" className="hover:underline">
               Form Builder
+            </a>
+            
+            <a href="/forms" className="hover:underline">
+              Forms View
             </a>
             <UserButton />
           </nav>

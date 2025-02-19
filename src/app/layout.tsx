@@ -21,6 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <a href="/form-builder" className="hover:underline">
                     Form Builder
                   </a>
+                  <a href="/forms" className="hover:underline">
+                    Forms
+                  </a>
                   <UserButton />
                 </div>
               </SignedIn>
