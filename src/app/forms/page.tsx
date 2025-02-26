@@ -53,6 +53,7 @@ export default function FormsPage() {
       console.error('Error deleting form:', error);
     }
   };
+  const handleEdit = async (id: string) => {}
 
   [{
 	"resource": "/c:/Ruhuna Eng/Semester 6/EE6254 DevOps/dynamic-form-builder/src/app/forms/page.tsx",
