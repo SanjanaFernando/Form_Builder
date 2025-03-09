@@ -1,18 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
+import React, { useState, useEffect } from 'react';
+import { DndProvider, useDrag, useDrop, ConnectDragSource, ConnectDropTarget } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { HiOutlineUser, HiOutlineMail, HiOutlineClipboardList, HiOutlineCheckCircle, HiOutlineCalendar } from "react-icons/hi";  
 import { arrayMoveImmutable } from 'array-move';  
-import { JSX } from 'react/jsx-runtime';
+import { useRouter } from 'next/navigation';
 
 const ITEM_TYPE = 'FORM_ELEMENT';
 
-const formElementComponents: Record<string, JSX.Element> = {
+const formElementComponents: Record<string, React.ReactElement> = {
   "Text Field": <div className="flex items-center"><HiOutlineUser className="mr-2" /> <input type="text" placeholder="Enter text" className="border p-2 w-full rounded-md" /></div>,
   Email: <div className="flex items-center"><HiOutlineMail className="mr-2" /> <input type="email" placeholder="Enter email" className="border p-2 w-full rounded-md" /></div>,
   Dropdown: (
@@ -30,28 +30,47 @@ const formElementComponents: Record<string, JSX.Element> = {
 };
 
 function DraggableElement({ label }: { label: string }) {
-  const [, drag] = useDrag(() => ({
+  const [, drag] = useDrag<{ label: string }, void, any>(() => ({
     type: ITEM_TYPE,
     item: { label },
   }));
 
+  const dragRef = (element: HTMLLIElement | null) => {
+    if (element) drag(element);
+  };
+
   return (
-    <li ref={drag} className="mb-2 cursor-pointer hover:text-blue-500 px-3 py-2 border rounded-md bg-white shadow-sm hover:shadow-md transition">
+    <li ref={dragRef} className="mb-2 cursor-pointer hover:text-blue-500 px-3 py-2 border rounded-md bg-white shadow-sm hover:shadow-md transition">
       {label}
     </li>
   );
 }
 
-function DroppableArea({ onSave }: { onSave: (elements: any[]) => void }) {
-  const [formElements, setFormElements] = useState<{ id: number; label: string }[]>([]);
+function DroppableArea({ onSave, initialElements = [] }: { 
+  onSave: (elements: Array<{ id: number; label: string }>) => void;
+  initialElements?: Array<{ id: number; label: string }>;
+}) {
+  const [formElements, setFormElements] = useState<Array<{ id: number; label: string }>>(initialElements);
+
+  // Log the initial elements and current elements for debugging
+  useEffect(() => {
+    console.log('Initial elements:', initialElements);
+    console.log('Current elements:', formElements);
+  }, [initialElements, formElements]);
+
   const [selectedElement, setSelectedElement] = useState<number | null>(null);
 
-  const [, drop] = useDrop(() => ({
+  const [, drop] = useDrop<{ label: string }, void, any>(() => ({
     accept: ITEM_TYPE,
     drop: (item: { label: string }) => {
-      setFormElements((prev) => [...prev, { id: Date.now(), label: item.label }]);
+      const newElement = { id: Date.now(), label: item.label };
+      setFormElements(prev => [...prev, newElement]);
     },
   }));
+
+  const dropRef = (element: HTMLDivElement | null) => {
+    if (element) drop(element);
+  };
 
   const handleDelete = () => {
     if (selectedElement !== null) {
@@ -61,7 +80,7 @@ function DroppableArea({ onSave }: { onSave: (elements: any[]) => void }) {
   };
 
   return (
-    <Card ref={drop} className="w-full min-h-[250px] p-6 bg-gray-50 border-dashed border-2 border-gray-300">
+    <Card ref={dropRef} className="w-full min-h-[250px] p-6 bg-gray-50 border-dashed border-2 border-gray-300">
       <CardHeader>
         <CardTitle className="text-gray-700">Form Preview</CardTitle>
       </CardHeader>
@@ -96,25 +115,51 @@ function DroppableArea({ onSave }: { onSave: (elements: any[]) => void }) {
   );
 }
 
-function DraggableElementWithSort({ element, index, formElements, setFormElements, setSelectedElement, isSelected }: any) {
-  const [, drag] = useDrag(() => ({
+interface DraggableElementWithSortProps {
+  element: { id: number; label: string };
+  index: number;
+  formElements: Array<{ id: number; label: string }>;
+  setFormElements: React.Dispatch<React.SetStateAction<Array<{ id: number; label: string }>>>;
+  setSelectedElement: (id: number | null) => void;
+  isSelected: boolean;
+}
+
+interface DragItem {
+  index: number;
+}
+
+function DraggableElementWithSort({ 
+  element, 
+  index, 
+  formElements, 
+  setFormElements, 
+  setSelectedElement, 
+  isSelected 
+}: DraggableElementWithSortProps) {
+  const [, drag] = useDrag<DragItem, void, any>(() => ({
     type: ITEM_TYPE,
     item: { index },
   }));
 
-  const [, drop] = useDrop(() => ({
+  const [, drop] = useDrop<DragItem, void, any>(() => ({
     accept: ITEM_TYPE,
-    hover: (draggedItem: { index: number }) => {
+    hover: (draggedItem: DragItem) => {
       const { index: draggedIndex } = draggedItem;
       if (draggedIndex !== index) {
-        setFormElements((prevElements) => arrayMoveImmutable(prevElements, draggedIndex, index));
+        setFormElements((prevElements: Array<{ id: number; label: string }>) => 
+          arrayMoveImmutable(prevElements, draggedIndex, index)
+        );
       }
     },
   }));
 
   return (
     <li
-      ref={(node) => drag(drop(node))}
+      ref={(node) => {
+        if (node) {
+          drag(drop(node));
+        }
+      }}
       className={`mb-4 p-2 border rounded-md shadow-sm flex justify-between items-center cursor-pointer transition ${isSelected ? "bg-red-200" : "bg-white"}`}
       onClick={() => setSelectedElement(element.id)}
     >
@@ -124,26 +169,41 @@ function DraggableElementWithSort({ element, index, formElements, setFormElement
 }
 
 export default function FormBuilderPage() {
-  const [formTitle, setFormTitle] = useState<string>(''); // State for form title
+  const [formTitle, setFormTitle] = useState<string>('');
+  const router = useRouter();
 
-  const handleSaveForm = async (elements: any[]) => {
+  const handleSaveForm = async (elements: Array<{ id: number; label: string }>) => {
     try {
-      const response = await fetch('/api/saveForm', {
+      if (!formTitle.trim()) {
+        alert('Please enter a form title');
+        return;
+      }
+
+      const response = await fetch('/api/forms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          title: formTitle,
-          elements,
+          title: formTitle.trim(),
+          elements: elements,
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to save form');
+      const data = await response.json();
 
-      console.log('Form saved successfully');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save form');
+      }
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to save form');
+      }
+
+      router.push('/forms');
     } catch (error) {
-      console.error(error.message);
+      console.error('Error saving form:', error);
+      alert(error instanceof Error ? error.message : 'Failed to save form');
     }
   };
 
@@ -154,7 +214,6 @@ export default function FormBuilderPage() {
           <h1 className="text-xl font-bold text-yellow-400">Form Builder</h1>
         </header>
 
-        {/* Input field for the form title */}
         <div className="p-4">
           <input 
             type="text"
@@ -162,6 +221,7 @@ export default function FormBuilderPage() {
             onChange={(e) => setFormTitle(e.target.value)}
             placeholder="Enter Form Title"
             className="border p-2 w-full rounded-md"
+            required
           />
         </div>
 
@@ -179,17 +239,21 @@ export default function FormBuilderPage() {
 
           {/* Main Builder */}
           <main className="w-full md:w-2/4 bg-white p-6 border-x flex justify-center">
-            <DroppableArea onSave={handleSaveForm} />
+            <DroppableArea 
+              onSave={handleSaveForm}
+              initialElements={[]}
+            />
           </main>
 
           {/* Right Sidebar */}
           <aside className="w-full md:w-1/4 bg-gray-100 p-4">
             <h2 className="font-bold text-lg text-green-500 mb-4">Customize Form</h2>
             <Separator />
-            {/* Add customization options here */}
           </aside>
         </div>
       </div>
     </DndProvider>
   );
 }
+
+export { DraggableElement, DroppableArea };

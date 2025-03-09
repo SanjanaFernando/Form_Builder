@@ -1,9 +1,8 @@
 // prisma/schema.prisma
 generator client {
   provider        = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
 }
-
 
 datasource db {
   provider = "postgresql"
@@ -11,7 +10,20 @@ datasource db {
 }
 
 model Form {
-  id       Int      @id @default(autoincrement())
-  title    String
-  elements Json
+  id        Int           @id @default(autoincrement())
+  title     String
+  elements  Json         @default("[]")
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  responses FormResponse[]
+}
+
+model FormResponse {
+  id        Int      @id @default(autoincrement())
+  formId    Int
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses Json
+  createdAt DateTime @default(now())
+
+  @@index([formId])
 }

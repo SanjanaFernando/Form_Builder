@@ -48,6 +48,31 @@ export default function DashboardPage() {
           </Card>
         </div>
 
+        {/* Quick Actions */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Link href="/submissions">
+            <Card className="bg-blue-500 text-white shadow-lg rounded-xl p-6 hover:shadow-xl transition cursor-pointer">
+              <CardContent className="text-center">
+                <svg 
+                  className="w-8 h-8 mx-auto mb-2" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                  />
+                </svg>
+                <h3 className="font-bold text-lg">View Submissions</h3>
+              </CardContent>
+            </Card>
+          </Link>
+          {/* Rest of your cards */}
+        </div>
+
         {/* Most Viewed/Submitted Section */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[
