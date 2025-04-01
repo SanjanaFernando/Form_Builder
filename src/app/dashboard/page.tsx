@@ -22,7 +22,7 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <div className="p-6 w-full max-w-6xl">
-        <h2 className="text-2xl font-bold text-center mb-8">Dashboard - Today Summary(Test5)</h2>
+        <h2 className="text-2xl font-bold text-center mb-8">Dashboard - Today Summary(Test6)</h2>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 justify-center">
