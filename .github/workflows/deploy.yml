@@ -1,0 +1,75 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1 # Change this to your AWS region
+  EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+  SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Create SSH directory
+      run: mkdir -p ~/.ssh
+
+    - name: Store SSH key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
+        chmod 600 ~/.ssh/private.key
+        cat >>~/.ssh/config <<END
+        Host ec2
+          HostName ${{ env.EC2_HOST }}
+          User ${{ env.EC2_USERNAME }}
+          IdentityFile ~/.ssh/private.key
+          StrictHostKeyChecking no
+        END
+
+    - name: Create production env file
+      run: |
+        cat > .env.production << EOL
+        DATABASE_URL=postgresql://postgres:${{ secrets.DB_PASSWORD }}@${{ secrets.DB_HOST }}:5432/FormBuild
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }}
+        CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+        NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+        NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+        NODE_ENV=production
+        NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}
+        EOL
+
+    - name: Deploy to EC2
+      run: |
+        # Copy files to EC2
+        scp -i ~/.ssh/private.key -r ./* ec2:~/app/
+        
+        # SSH into EC2 and run deployment commands
+        ssh -i ~/.ssh/private.key ec2 '
+          cd ~/app
+          # Backup existing .env file if it exists
+          if [ -f .env ]; then
+            mv .env .env.backup
+          fi
+          # Copy production env file
+          cp .env.production .env
+          # Ensure proper permissions
+          chmod 600 .env
+          # Deploy with Docker
+          docker-compose down
+          docker-compose build --no-cache
+          docker-compose up -d
+        ' 
