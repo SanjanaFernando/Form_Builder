@@ -25,20 +25,6 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_REGION }}
 
-    - name: Get GitHub Actions IP ranges
-      run: |
-        curl -s https://api.github.com/meta | jq -r '.actions[]' > github-actions-ips.txt
-        echo "GitHub Actions IP ranges:"
-        cat github-actions-ips.txt
-
-    - name: Update EC2 Security Group
-      run: |
-        aws ec2 authorize-security-group-ingress \
-          --group-id ${{ secrets.EC2_SECURITY_GROUP_ID }} \
-          --protocol tcp \
-          --port 22 \
-          --cidr $(cat github-actions-ips.txt)
-
     - name: Create SSH directory
       run: mkdir -p ~/.ssh
 
@@ -52,8 +38,6 @@ jobs:
           User ${{ env.EC2_USERNAME }}
           IdentityFile ~/.ssh/private.key
           StrictHostKeyChecking no
-          ConnectTimeout 30
-          ServerAliveInterval 60
         END
 
     - name: Create production env file
@@ -67,15 +51,6 @@ jobs:
         NODE_ENV=production
         NEXT_PUBLIC_API_URL=${{ secrets.API_URL }}
         EOL
-
-    - name: Test SSH Connection
-      run: |
-        ssh -v -i ~/.ssh/private.key ec2 'echo "SSH connection successful"'
-        if [ $? -ne 0 ]; then
-          echo "SSH connection failed. Checking EC2 instance status..."
-          aws ec2 describe-instance-status --instance-ids ${{ env.EC2_INSTANCE_ID }}
-          exit 1
-        fi
 
     - name: Deploy to EC2
       run: |
