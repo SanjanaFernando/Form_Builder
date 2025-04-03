@@ -54,30 +54,11 @@ jobs:
 
     - name: Deploy to EC2
       run: |
-        # Create app directory and install Docker on EC2
-        ssh -i ~/.ssh/private.key ec2 '
-          # Create app directory if it doesn't exist
-          mkdir -p ~/app
-          
-          # Install Docker if not installed
-          if ! command -v docker &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y docker.io
-            sudo systemctl start docker
-            sudo systemctl enable docker
-            sudo usermod -aG docker $USER
-          fi
-          
-          # Install Docker Compose if not installed
-          if ! command -v docker-compose &> /dev/null; then
-            sudo apt-get install -y docker-compose
-          fi
-        '
-
-       
+        # Copy files to EC2
+        scp -i ~/.ssh/private.key -r ./* ec2:~/app/
         
         # SSH into EC2 and run deployment commands
-        ssh -i ~/.ssh/deploy-key.pem'
+        ssh -i ~/.ssh/private.key ec2 '
           cd ~/app
           # Backup existing .env file if it exists
           if [ -f .env ]; then
