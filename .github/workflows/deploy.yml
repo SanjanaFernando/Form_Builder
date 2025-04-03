@@ -75,10 +75,10 @@ jobs:
         '
 
         # Copy files to EC2
-        scp -i ~/.ssh/deploy-key.pem -r ./* ec2:~/app/
+        scp -i ~/.ssh/private.key -r ./* ec2:~/app/
         
         # SSH into EC2 and run deployment commands
-        ssh -i ~/.ssh/deploy-key.pem ec2 '
+        ssh -i ~/.ssh/private.key ec2 '
           cd ~/app
           # Backup existing .env file if it exists
           if [ -f .env ]; then
