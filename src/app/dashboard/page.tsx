@@ -42,7 +42,7 @@ export default function DashboardPage() {
           <Card className="bg-green-500 text-white shadow-lg rounded-xl p-6 hover:shadow-xl transition">
             <CardContent className="flex justify-center items-center h-full">
               <Link href="/form-builder">
-                <Button variant="ghost" className="font-bold text-lg">+ CREATE FORM</Button>
+                <Button variant="ghost" className="font-bold text-lg">+ CREATE FORM </Button>
               </Link>
             </CardContent>
           </Card>
