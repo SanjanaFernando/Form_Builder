@@ -77,7 +77,7 @@ jobs:
        
         
         # SSH into EC2 and run deployment commands
-        ssh -i ~/.ssh/deploy-key.pem ec2 '
+        ssh -i ~/.ssh/deploy-key.pem'
           cd ~/app
           # Backup existing .env file if it exists
           if [ -f .env ]; then
