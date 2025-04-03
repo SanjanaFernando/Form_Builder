@@ -30,13 +30,13 @@ jobs:
 
     - name: Store SSH key
       run: |
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/authorized_keys
-        chmod 600 ~/.ssh/authorized_keys
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/private.key
+        chmod 600 ~/.ssh/private.key
         cat >>~/.ssh/config <<END
         Host ec2
           HostName ${{ env.EC2_HOST }}
           User ${{ env.EC2_USERNAME }}
-          IdentityFile ~/.ssh/authorized_keys
+          IdentityFile ~/.ssh/private.key
           StrictHostKeyChecking no
         END
 
@@ -45,9 +45,9 @@ jobs:
         echo "SSH config:"
         cat ~/.ssh/config
         echo "SSH key exists:"
-        ls -la ~/.ssh/authorized_keys
+        ls -la ~/.ssh/private.key
         echo "SSH key permissions:"
-        stat -c "%a %n" ~/.ssh/authorized_keys
+        stat -c "%a %n" ~/.ssh/private.key
 
     - name: Create production env file
       run: |
@@ -65,11 +65,11 @@ jobs:
       run: |
         # Test SSH connection first
         echo "Testing SSH connection..."
-        ssh -i ~/.ssh/authorized_keys -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} 'echo "SSH connection successful"'
+        ssh -i ~/.ssh/private.key -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} 'echo "SSH connection successful"'
         
         # Create app directory and install Docker on EC2
         echo "Setting up EC2 instance..."
-        ssh -i ~/.ssh/authorized_keys -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
+        ssh -i ~/.ssh/private.key -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
           # Create app directory if it doesn't exist
           mkdir -p ~/app
           
@@ -90,11 +90,11 @@ jobs:
 
         # Copy files to EC2
         echo "Copying files to EC2..."
-        scp -i ~/.ssh/authorized_keys -o StrictHostKeyChecking=no -r ./* ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }}:~/app/
+        scp -i ~/.ssh/private.key -o StrictHostKeyChecking=no -r ./* ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }}:~/app/
         
         # SSH into EC2 and run deployment commands
         echo "Running deployment commands..."
-        ssh -i ~/.ssh/authorized_keys -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
+        ssh -i ~/.ssh/private.key -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
           cd ~/app
           # Backup existing .env file if it exists
           if [ -f .env ]; then
