@@ -40,6 +40,15 @@ jobs:
           StrictHostKeyChecking no
         END
 
+    - name: Debug SSH setup
+      run: |
+        echo "SSH config:"
+        cat ~/.ssh/config
+        echo "SSH key exists:"
+        ls -la ~/.ssh/private.key
+        echo "SSH key permissions:"
+        stat -c "%a %n" ~/.ssh/private.key
+
     - name: Create production env file
       run: |
         cat > .env.production << EOL
@@ -54,8 +63,13 @@ jobs:
 
     - name: Deploy to EC2
       run: |
+        # Test SSH connection first
+        echo "Testing SSH connection..."
+        ssh -i ~/.ssh/private.key -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} 'echo "SSH connection successful"'
+        
         # Create app directory and install Docker on EC2
-        ssh -i ~/.ssh/private.key ec2 '
+        echo "Setting up EC2 instance..."
+        ssh -i ~/.ssh/private.key -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
           # Create app directory if it doesn't exist
           mkdir -p ~/app
           
@@ -75,10 +89,12 @@ jobs:
         '
 
         # Copy files to EC2
-        scp -i ~/.ssh/private.key -r ./* ec2:~/app/
+        echo "Copying files to EC2..."
+        scp -i ~/.ssh/private.key -o StrictHostKeyChecking=no -r ./* ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }}:~/app/
         
         # SSH into EC2 and run deployment commands
-        ssh -i ~/.ssh/private.key ec2 '
+        echo "Running deployment commands..."
+        ssh -i ~/.ssh/private.key -o StrictHostKeyChecking=no ${{ env.EC2_USERNAME }}@${{ env.EC2_HOST }} '
           cd ~/app
           # Backup existing .env file if it exists
           if [ -f .env ]; then
