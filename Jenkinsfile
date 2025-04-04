@@ -12,7 +12,7 @@ pipeline {
         BACKEND_PORT = '3001'
         POSTGRES_PORT = '5433'
         DATABASE_URL = 'postgresql://postgres:20010511@localhost:5433/FormBuild_test'
-        NPM_CONFIG_CACHE = 'npm-cache'
+        WORKSPACE = "${WORKSPACE}"
     }
     
     stages {
@@ -28,12 +28,20 @@ pipeline {
                     try {
                         bat '''
                             @echo off
-                            echo Creating NPM cache directory...
-                            mkdir npm-cache 2>nul || echo Directory exists
+                            echo Setting up NPM environment...
                             
-                            echo Setting NPM configuration...
-                            npm config set cache %cd%\\npm-cache --global
-                            npm config set prefix %cd%\\npm-global
+                            echo Creating directories...
+                            if not exist ".npm-cache" mkdir .npm-cache
+                            if not exist ".npm-global" mkdir .npm-global
+                            
+                            echo Configuring NPM...
+                            call npm config set cache "%WORKSPACE%\\.npm-cache"
+                            call npm config set prefix "%WORKSPACE%\\.npm-global"
+                            
+                            echo Setting PATH...
+                            set PATH=%WORKSPACE%\\.npm-global;%WORKSPACE%\\.npm-global\\bin;%PATH%
+                            
+                            echo NPM configuration complete
                         '''
                     } catch (Exception e) {
                         echo "Error setting up NPM: ${e.message}"
@@ -93,11 +101,12 @@ pipeline {
             steps {
                 bat '''
                     @echo off
-                    echo Installing dependencies...
-                    npm ci
+                    echo Installing project dependencies...
+                    call npm ci
                     
-                    echo Installing Prisma globally in workspace...
-                    npm install -g prisma
+                    echo Installing Prisma...
+                    call npm install prisma --save-dev
+                    call npm install @prisma/client
                 '''
             }
         }
@@ -112,7 +121,7 @@ pipeline {
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             
                             echo Generating Prisma client...
-                            call prisma generate
+                            call npx prisma generate
                             
                             if errorlevel 1 (
                                 echo Failed to generate Prisma client
@@ -135,7 +144,7 @@ pipeline {
                             @echo off
                             echo Running database migrations...
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
-                            call prisma migrate deploy
+                            call npx prisma migrate deploy
                             
                             if errorlevel 1 (
                                 echo Failed to run migrations
@@ -241,6 +250,8 @@ pipeline {
                 try {
                     bat '''
                         @echo off
+                        echo Cleaning up...
+                        
                         echo Cleaning up PostgreSQL container...
                         docker ps -a -q --filter "name=postgres-test" > temp.txt
                         set /p CONTAINER_ID=<temp.txt
@@ -254,9 +265,9 @@ pipeline {
                             echo No container to clean up
                         )
                         
-                        echo Cleaning up NPM cache...
-                        rmdir /s /q npm-cache 2>nul || echo No cache to clean
-                        rmdir /s /q npm-global 2>nul || echo No global directory to clean
+                        echo Cleaning up NPM directories...
+                        if exist ".npm-cache" rmdir /s /q .npm-cache
+                        if exist ".npm-global" rmdir /s /q .npm-global
                     '''
                 } catch (Exception e) {
                     echo "Error in cleanup: ${e.message}"
