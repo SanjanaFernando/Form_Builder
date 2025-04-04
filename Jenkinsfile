@@ -24,6 +24,12 @@ pipeline {
                 bat 'npm ci'
             }
         }
+
+        stage('Generate Prisma Client') {
+            steps {
+                bat 'npx prisma generate'
+            }
+        }
         
         stage('Build') {
             steps {
