@@ -25,14 +25,22 @@ pipeline {
             steps {
                 script {
                     try {
+                        // Clean up any existing container
                         bat '''
-                            docker ps -a -q --filter "name=postgres-test" | findstr . && (
+                            @echo off
+                            docker ps -a -q --filter "name=postgres-test" > temp.txt
+                            set /p CONTAINER_ID=<temp.txt
+                            del temp.txt
+                            
+                            if defined CONTAINER_ID (
+                                echo Found existing container, removing it...
                                 docker stop postgres-test
                                 docker rm postgres-test
-                            ) || echo "No existing container to remove"
-                        '''
-                        
-                        bat '''
+                            ) else (
+                                echo No existing container found
+                            )
+                            
+                            echo Starting new PostgreSQL container...
                             docker run -d --name postgres-test ^
                             -e POSTGRES_USER=postgres ^
                             -e POSTGRES_PASSWORD=20010511 ^
@@ -40,15 +48,20 @@ pipeline {
                             -p %POSTGRES_PORT%:5432 ^
                             postgres:16-alpine
                             
-                            timeout /t 15 /nobreak >nul
+                            echo Waiting for container to start...
+                            timeout /t 15 /nobreak > nul
                             
-                            docker ps | findstr postgres-test || (
-                                echo PostgreSQL container failed to start
+                            echo Checking container status...
+                            docker ps --filter "name=postgres-test" --format "{{.Status}}" | findstr "Up"
+                            if errorlevel 1 (
+                                echo PostgreSQL container failed to start properly
                                 exit 1
+                            ) else (
+                                echo PostgreSQL container started successfully
                             )
                         '''
                     } catch (Exception e) {
-                        echo "Error starting PostgreSQL: ${e.message}"
+                        echo "Error in PostgreSQL setup: ${e.message}"
                         throw e
                     }
                 }
@@ -66,7 +79,11 @@ pipeline {
                 script {
                     try {
                         bat '''
+                            @echo off
+                            echo Setting up database connection...
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
+                            
+                            echo Generating Prisma client...
                             npx prisma generate
                         '''
                     } catch (Exception e) {
@@ -82,6 +99,8 @@ pipeline {
                 script {
                     try {
                         bat '''
+                            @echo off
+                            echo Running database migrations...
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             npx prisma migrate deploy
                         '''
@@ -104,6 +123,8 @@ pipeline {
                 script {
                     try {
                         bat '''
+                            @echo off
+                            echo Running tests...
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             npm test
                         '''
@@ -119,11 +140,14 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Build frontend image
-                        bat "docker build -t form-builder-frontend:%BUILD_NUMBER% -f Dockerfile.frontend ."
-                        
-                        // Build backend image
-                        bat "docker build -t form-builder-backend:%BUILD_NUMBER% -f Dockerfile.backend ."
+                        bat '''
+                            @echo off
+                            echo Building frontend image...
+                            docker build -t form-builder-frontend:%BUILD_NUMBER% -f Dockerfile.frontend .
+                            
+                            echo Building backend image...
+                            docker build -t form-builder-backend:%BUILD_NUMBER% -f Dockerfile.backend .
+                        '''
                     } catch (Exception e) {
                         echo "Error building Docker images: ${e.message}"
                         throw e
@@ -136,17 +160,16 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Tag images
-                        bat """
+                        bat '''
+                            @echo off
+                            echo Tagging images...
                             docker tag form-builder-frontend:%BUILD_NUMBER% %DOCKER_REGISTRY%:%FRONTEND_PORT%/form-builder-frontend:%BUILD_NUMBER%
                             docker tag form-builder-backend:%BUILD_NUMBER% %DOCKER_REGISTRY%:%BACKEND_PORT%/form-builder-backend:%BUILD_NUMBER%
-                        """
-                        
-                        // Push images
-                        bat """
+                            
+                            echo Pushing images...
                             docker push %DOCKER_REGISTRY%:%FRONTEND_PORT%/form-builder-frontend:%BUILD_NUMBER%
                             docker push %DOCKER_REGISTRY%:%BACKEND_PORT%/form-builder-backend:%BUILD_NUMBER%
-                        """
+                        '''
                     } catch (Exception e) {
                         echo "Error pushing Docker images: ${e.message}"
                         throw e
@@ -159,7 +182,11 @@ pipeline {
             steps {
                 script {
                     try {
-                        bat 'docker-compose up -d'
+                        bat '''
+                            @echo off
+                            echo Deploying application...
+                            docker-compose up -d
+                        '''
                     } catch (Exception e) {
                         echo "Error deploying application: ${e.message}"
                         throw e
@@ -175,8 +202,19 @@ pipeline {
             script {
                 try {
                     bat '''
-                        docker stop postgres-test || echo "Failed to stop container"
-                        docker rm postgres-test || echo "Failed to remove container"
+                        @echo off
+                        echo Cleaning up PostgreSQL container...
+                        docker ps -a -q --filter "name=postgres-test" > temp.txt
+                        set /p CONTAINER_ID=<temp.txt
+                        del temp.txt
+                        
+                        if defined CONTAINER_ID (
+                            echo Stopping and removing container...
+                            docker stop postgres-test
+                            docker rm postgres-test
+                        ) else (
+                            echo No container to clean up
+                        )
                     '''
                 } catch (Exception e) {
                     echo "Error cleaning up PostgreSQL container: ${e.message}"
