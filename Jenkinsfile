@@ -14,6 +14,8 @@ pipeline {
         DATABASE_URL = 'postgresql://postgres:20010511@localhost:5433/FormBuild_test'
         NPM_CACHE_DIR = "${WORKSPACE}\\npm-cache"
         NPM_GLOBAL_DIR = "${WORKSPACE}\\npm-global"
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = credentials('CLERK_PUBLISHABLE_KEY')
+        CLERK_SECRET_KEY = credentials('CLERK_SECRET_KEY')
     }
     
     stages {
@@ -166,7 +168,27 @@ pipeline {
         
         stage('Build') {
             steps {
-                bat 'npm run build'
+                script {
+                    try {
+                        bat '''
+                            @echo off
+                            echo Setting up environment variables...
+                            set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=%NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY%
+                            set CLERK_SECRET_KEY=%CLERK_SECRET_KEY%
+                            
+                            echo Building application...
+                            call npm run build
+                            
+                            if errorlevel 1 (
+                                echo Build failed
+                                exit 1
+                            )
+                        '''
+                    } catch (Exception e) {
+                        echo "Error during build: ${e.message}"
+                        throw e
+                    }
+                }
             }
         }
         
