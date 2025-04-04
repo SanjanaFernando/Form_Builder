@@ -12,7 +12,8 @@ pipeline {
         BACKEND_PORT = '3001'
         POSTGRES_PORT = '5433'
         DATABASE_URL = 'postgresql://postgres:20010511@localhost:5433/FormBuild_test'
-        WORKSPACE = "${WORKSPACE}"
+        NPM_CACHE_DIR = "${WORKSPACE}\\npm-cache"
+        NPM_GLOBAL_DIR = "${WORKSPACE}\\npm-global"
     }
     
     stages {
@@ -31,17 +32,18 @@ pipeline {
                             echo Setting up NPM environment...
                             
                             echo Creating directories...
-                            if not exist ".npm-cache" mkdir .npm-cache
-                            if not exist ".npm-global" mkdir .npm-global
+                            if not exist "%NPM_CACHE_DIR%" mkdir "%NPM_CACHE_DIR%"
+                            if not exist "%NPM_GLOBAL_DIR%" mkdir "%NPM_GLOBAL_DIR%"
                             
-                            echo Configuring NPM...
-                            call npm config set cache "%WORKSPACE%\\.npm-cache"
-                            call npm config set prefix "%WORKSPACE%\\.npm-global"
+                            echo Setting NPM configuration...
+                            call npm config set cache "%NPM_CACHE_DIR%"
+                            call npm config set prefix "%NPM_GLOBAL_DIR%"
                             
-                            echo Setting PATH...
-                            set PATH=%WORKSPACE%\\.npm-global;%WORKSPACE%\\.npm-global\\bin;%PATH%
+                            echo Verifying NPM configuration...
+                            call npm config get cache
+                            call npm config get prefix
                             
-                            echo NPM configuration complete
+                            echo NPM setup complete
                         '''
                     } catch (Exception e) {
                         echo "Error setting up NPM: ${e.message}"
@@ -107,6 +109,10 @@ pipeline {
                     echo Installing Prisma...
                     call npm install prisma --save-dev
                     call npm install @prisma/client
+                    
+                    echo Verifying installations...
+                    call npm list prisma
+                    call npm list @prisma/client
                 '''
             }
         }
@@ -121,7 +127,7 @@ pipeline {
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             
                             echo Generating Prisma client...
-                            call npx prisma generate
+                            call node_modules\\.bin\\prisma generate
                             
                             if errorlevel 1 (
                                 echo Failed to generate Prisma client
@@ -144,7 +150,7 @@ pipeline {
                             @echo off
                             echo Running database migrations...
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
-                            call npx prisma migrate deploy
+                            call node_modules\\.bin\\prisma migrate deploy
                             
                             if errorlevel 1 (
                                 echo Failed to run migrations
@@ -266,8 +272,8 @@ pipeline {
                         )
                         
                         echo Cleaning up NPM directories...
-                        if exist ".npm-cache" rmdir /s /q .npm-cache
-                        if exist ".npm-global" rmdir /s /q .npm-global
+                        if exist "%NPM_CACHE_DIR%" rmdir /s /q "%NPM_CACHE_DIR%"
+                        if exist "%NPM_GLOBAL_DIR%" rmdir /s /q "%NPM_GLOBAL_DIR%"
                     '''
                 } catch (Exception e) {
                     echo "Error in cleanup: ${e.message}"
