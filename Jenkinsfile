@@ -36,12 +36,11 @@ pipeline {
                             if not exist "%NPM_GLOBAL_DIR%" mkdir "%NPM_GLOBAL_DIR%"
                             
                             echo Setting NPM configuration...
-                            call npm config set cache "%NPM_CACHE_DIR%"
-                            call npm config set prefix "%NPM_GLOBAL_DIR%"
+                            call npm config set cache "%NPM_CACHE_DIR%" --global
+                            call npm config set prefix "%NPM_GLOBAL_DIR%" --global
                             
                             echo Verifying NPM configuration...
-                            call npm config get cache
-                            call npm config get prefix
+                            call npm config list
                             
                             echo NPM setup complete
                         '''
@@ -104,11 +103,11 @@ pipeline {
                 bat '''
                     @echo off
                     echo Installing project dependencies...
-                    call npm ci
+                    call npm ci --cache "%NPM_CACHE_DIR%"
                     
                     echo Installing Prisma...
-                    call npm install prisma --save-dev
-                    call npm install @prisma/client
+                    call npm install prisma --save-dev --cache "%NPM_CACHE_DIR%"
+                    call npm install @prisma/client --cache "%NPM_CACHE_DIR%"
                     
                     echo Verifying installations...
                     call npm list prisma
