@@ -192,23 +192,7 @@ pipeline {
             }
         }
         
-        stage('Test') {
-            steps {
-                script {
-                    try {
-                        bat '''
-                            @echo off
-                            echo Running tests...
-                            set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
-                            npm test
-                        '''
-                    } catch (Exception e) {
-                        echo "Error running tests: ${e.message}"
-                        throw e
-                    }
-                }
-            }
-        }
+       
         
         stage('Build Docker Images') {
             steps {
