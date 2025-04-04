@@ -10,7 +10,8 @@ pipeline {
         DOCKER_REGISTRY = 'localhost'
         FRONTEND_PORT = '3000'
         BACKEND_PORT = '3001'
-        DATABASE_URL = 'postgresql://postgres:20010511@localhost:5432/FormBuild_test'
+        POSTGRES_PORT = '5433'
+        DATABASE_URL = 'postgresql://postgres:20010511@localhost:5433/FormBuild_test'
     }
     
     stages {
@@ -25,8 +26,26 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            docker run -d --name postgres-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=20010511 -e POSTGRES_DB=FormBuild_test -p 5432:5432 postgres:16-alpine
-                            timeout /t 10 /nobreak
+                            docker ps -a -q --filter "name=postgres-test" | findstr . && (
+                                docker stop postgres-test
+                                docker rm postgres-test
+                            ) || echo "No existing container to remove"
+                        '''
+                        
+                        bat '''
+                            docker run -d --name postgres-test ^
+                            -e POSTGRES_USER=postgres ^
+                            -e POSTGRES_PASSWORD=20010511 ^
+                            -e POSTGRES_DB=FormBuild_test ^
+                            -p %POSTGRES_PORT%:5432 ^
+                            postgres:16-alpine
+                            
+                            timeout /t 15 /nobreak >nul
+                            
+                            docker ps | findstr postgres-test || (
+                                echo PostgreSQL container failed to start
+                                exit 1
+                            )
                         '''
                     } catch (Exception e) {
                         echo "Error starting PostgreSQL: ${e.message}"
@@ -47,7 +66,7 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            set DATABASE_URL=postgresql://postgres:20010511@localhost:5432/FormBuild_test
+                            set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             npx prisma generate
                         '''
                     } catch (Exception e) {
@@ -63,7 +82,7 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            set DATABASE_URL=postgresql://postgres:20010511@localhost:5432/FormBuild_test
+                            set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             npx prisma migrate deploy
                         '''
                     } catch (Exception e) {
@@ -82,7 +101,17 @@ pipeline {
         
         stage('Test') {
             steps {
-                bat 'npm test'
+                script {
+                    try {
+                        bat '''
+                            set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
+                            npm test
+                        '''
+                    } catch (Exception e) {
+                        echo "Error running tests: ${e.message}"
+                        throw e
+                    }
+                }
             }
         }
         
@@ -145,8 +174,10 @@ pipeline {
             echo "Pipeline execution completed"
             script {
                 try {
-                    bat 'docker stop postgres-test'
-                    bat 'docker rm postgres-test'
+                    bat '''
+                        docker stop postgres-test || echo "Failed to stop container"
+                        docker rm postgres-test || echo "Failed to remove container"
+                    '''
                 } catch (Exception e) {
                     echo "Error cleaning up PostgreSQL container: ${e.message}"
                 }
