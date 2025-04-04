@@ -52,7 +52,7 @@ pipeline {
                     }
                     
                     // Push backend image
-                    docker.withRegistry('http://172.18.0.3:3000', 'docker-registry-credentials') {
+                    docker.withRegistry('http://localhost:3001', 'docker-registry-credentials') {
                         docker.image("form-builder-backend:${env.BUILD_NUMBER}").push()
                     }
                 }
