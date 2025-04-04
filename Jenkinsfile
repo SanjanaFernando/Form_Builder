@@ -27,7 +27,17 @@ pipeline {
 
         stage('Generate Prisma Client') {
             steps {
-                bat 'node_modules\\.bin\\prisma generate'
+                script {
+                    try {
+                        bat '''
+                            set PATH=%PATH%;%cd%\\node_modules\\.bin
+                            npx prisma generate
+                        '''
+                    } catch (Exception e) {
+                        echo "Error generating Prisma client: ${e.message}"
+                        throw e
+                    }
+                }
             }
         }
         
