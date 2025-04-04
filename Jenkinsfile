@@ -12,6 +12,7 @@ pipeline {
         BACKEND_PORT = '3001'
         POSTGRES_PORT = '5433'
         DATABASE_URL = 'postgresql://postgres:20010511@localhost:5433/FormBuild_test'
+        NPM_CONFIG_CACHE = 'npm-cache'
     }
     
     stages {
@@ -21,11 +22,31 @@ pipeline {
             }
         }
         
+        stage('Setup NPM') {
+            steps {
+                script {
+                    try {
+                        bat '''
+                            @echo off
+                            echo Creating NPM cache directory...
+                            mkdir npm-cache 2>nul || echo Directory exists
+                            
+                            echo Setting NPM configuration...
+                            npm config set cache %cd%\\npm-cache --global
+                            npm config set prefix %cd%\\npm-global
+                        '''
+                    } catch (Exception e) {
+                        echo "Error setting up NPM: ${e.message}"
+                        throw e
+                    }
+                }
+            }
+        }
+        
         stage('Start PostgreSQL') {
             steps {
                 script {
                     try {
-                        // Clean up any existing container
                         bat '''
                             @echo off
                             docker ps -a -q --filter "name=postgres-test" > temp.txt
@@ -70,7 +91,14 @@ pipeline {
         
         stage('Install Dependencies') {
             steps {
-                bat 'npm ci'
+                bat '''
+                    @echo off
+                    echo Installing dependencies...
+                    npm ci
+                    
+                    echo Installing Prisma globally in workspace...
+                    npm install -g prisma
+                '''
             }
         }
 
@@ -84,7 +112,12 @@ pipeline {
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
                             
                             echo Generating Prisma client...
-                            npx prisma generate
+                            call prisma generate
+                            
+                            if errorlevel 1 (
+                                echo Failed to generate Prisma client
+                                exit 1
+                            )
                         '''
                     } catch (Exception e) {
                         echo "Error generating Prisma client: ${e.message}"
@@ -102,7 +135,12 @@ pipeline {
                             @echo off
                             echo Running database migrations...
                             set DATABASE_URL=postgresql://postgres:20010511@localhost:%POSTGRES_PORT%/FormBuild_test
-                            npx prisma migrate deploy
+                            call prisma migrate deploy
+                            
+                            if errorlevel 1 (
+                                echo Failed to run migrations
+                                exit 1
+                            )
                         '''
                     } catch (Exception e) {
                         echo "Error running migrations: ${e.message}"
@@ -215,9 +253,13 @@ pipeline {
                         ) else (
                             echo No container to clean up
                         )
+                        
+                        echo Cleaning up NPM cache...
+                        rmdir /s /q npm-cache 2>nul || echo No cache to clean
+                        rmdir /s /q npm-global 2>nul || echo No global directory to clean
                     '''
                 } catch (Exception e) {
-                    echo "Error cleaning up PostgreSQL container: ${e.message}"
+                    echo "Error in cleanup: ${e.message}"
                 }
             }
         }
