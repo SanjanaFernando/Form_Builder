@@ -10,12 +10,29 @@ pipeline {
         DOCKER_REGISTRY = 'localhost'
         FRONTEND_PORT = '3000'
         BACKEND_PORT = '3001'
+        DATABASE_URL = 'postgresql://postgres:20010511@localhost:5432/FormBuild_test'
     }
     
     stages {
         stage('Checkout') {
             steps {
                 checkout scm
+            }
+        }
+        
+        stage('Start PostgreSQL') {
+            steps {
+                script {
+                    try {
+                        bat '''
+                            docker run -d --name postgres-test -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=20010511 -e POSTGRES_DB=FormBuild_test -p 5432:5432 postgres:16-alpine
+                            timeout /t 10 /nobreak
+                        '''
+                    } catch (Exception e) {
+                        echo "Error starting PostgreSQL: ${e.message}"
+                        throw e
+                    }
+                }
             }
         }
         
@@ -30,11 +47,27 @@ pipeline {
                 script {
                     try {
                         bat '''
-                            set PATH=%PATH%;%cd%\\node_modules\\.bin
+                            set DATABASE_URL=postgresql://postgres:20010511@localhost:5432/FormBuild_test
                             npx prisma generate
                         '''
                     } catch (Exception e) {
                         echo "Error generating Prisma client: ${e.message}"
+                        throw e
+                    }
+                }
+            }
+        }
+
+        stage('Run Database Migrations') {
+            steps {
+                script {
+                    try {
+                        bat '''
+                            set DATABASE_URL=postgresql://postgres:20010511@localhost:5432/FormBuild_test
+                            npx prisma migrate deploy
+                        '''
+                    } catch (Exception e) {
+                        echo "Error running migrations: ${e.message}"
                         throw e
                     }
                 }
@@ -110,6 +143,14 @@ pipeline {
     post {
         always {
             echo "Pipeline execution completed"
+            script {
+                try {
+                    bat 'docker stop postgres-test'
+                    bat 'docker rm postgres-test'
+                } catch (Exception e) {
+                    echo "Error cleaning up PostgreSQL container: ${e.message}"
+                }
+            }
         }
         success {
             echo 'Pipeline completed successfully!'
